@@ -94,8 +94,57 @@ export default function SequentialQuestions({
       // Create entry immediately with questions locked in
       createInitialEntry(selected);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  const [error, setError] = useState<string | null>(null);
+
+  // Retry creating entry if it failed initially or wasn't captured
+  const ensureEntryExists = async () => {
+    if (entryId) return entryId;
+    if (!questions) return null;
+
+    try {
+      const supabase = createClient();
+
+      // First check if one already exists for today that we missed
+      const { data: existing } = await supabase
+        .from('daily_entries')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('entry_date', today)
+        .single();
+
+      if (existing) {
+        setEntryId(existing.id);
+        return existing.id;
+      }
+
+      // Create new one
+      const { data, error: insertError } = await supabase
+        .from('daily_entries')
+        .insert({
+          user_id: userId,
+          entry_date: today,
+          question_1_id: questions.question_1.id,
+          question_2_id: questions.question_2.id,
+          question_3_id: questions.question_3.id,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      if (data) {
+        setEntryId(data.id);
+        return data.id;
+      }
+    } catch (err) {
+      console.error('Error ensuring entry exists:', err);
+      setError('Failed to start a new entry. Please try again.');
+      return null;
+    }
+  };
 
   const createInitialEntry = async (selected: Question[]) => {
     try {
@@ -122,22 +171,29 @@ export default function SequentialQuestions({
       }
     } catch (error) {
       console.error('Error creating entry:', error);
+      // Don't set error here, we'll retry on submit
     }
   };
 
   const handleSubmit = useCallback(async () => {
-    if (!questions || !entryId) return;
-
+    if (!questions) return;
+    setError(null);
     setIsSubmitting(true);
 
-    const questionKeys: QuestionKey[] = ['question_1', 'question_2', 'question_3'];
-    const answerKeys: AnswerKey[] = ['answer_1', 'answer_2', 'answer_3'];
-    const completedKeys: CompletedKey[] = ['question_1_completed', 'question_2_completed', 'question_3_completed'];
-
-    const currentAnswerKey = answerKeys[currentQuestionIndex];
-    const currentCompletedKey = completedKeys[currentQuestionIndex];
-
     try {
+      // Ensure we have an entry ID
+      const currentEntryId = await ensureEntryExists();
+      if (!currentEntryId) {
+        throw new Error('Could not create or find today\'s journal entry');
+      }
+
+      const questionKeys: QuestionKey[] = ['question_1', 'question_2', 'question_3'];
+      const answerKeys: AnswerKey[] = ['answer_1', 'answer_2', 'answer_3'];
+      const completedKeys: CompletedKey[] = ['question_1_completed', 'question_2_completed', 'question_3_completed'];
+
+      const currentAnswerKey = answerKeys[currentQuestionIndex];
+      const currentCompletedKey = completedKeys[currentQuestionIndex];
+
       const supabase = createClient();
 
       const updateData: Record<string, string | boolean | null> = {
@@ -145,10 +201,12 @@ export default function SequentialQuestions({
         [currentCompletedKey]: true,
       };
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('daily_entries')
         .update(updateData)
-        .eq('id', entryId);
+        .eq('id', currentEntryId);
+
+      if (updateError) throw updateError;
 
       // Update local state
       setCompletedQuestions(prev => ({
@@ -174,9 +232,11 @@ export default function SequentialQuestions({
 
     } catch (error) {
       console.error('Error submitting answer:', error);
+      setError('Failed to save your answer. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questions, entryId, currentQuestionIndex, answers]);
 
   const handleLandingComplete = () => {
@@ -267,42 +327,57 @@ export default function SequentialQuestions({
             transition={{ duration: 0.3 }}
           >
             {/* Progress indicator */}
-            <div className="flex justify-center gap-2 mb-8">
-              {[0, 1, 2].map((index) => (
-                <div
-                  key={index}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    completedQuestions[completedKeys[index]]
-                      ? 'bg-[#8B7355]'
-                      : index === currentQuestionIndex
-                      ? 'bg-[#8B7355]/50'
-                      : 'bg-[#E8E6E3]'
-                  }`}
-                />
-              ))}
+            <div className="flex justify-center items-center gap-3 mb-10">
+              <span className="text-xs font-medium text-white/60 tracking-wider uppercase">
+                Step {currentQuestionIndex + 1} of 3
+              </span>
+              <div className="flex gap-1.5">
+                {[0, 1, 2].map((index) => (
+                  <motion.div
+                    key={index}
+                    initial={false}
+                    animate={{
+                      scale: index === currentQuestionIndex ? 1.2 : 1,
+                      backgroundColor: completedQuestions[completedKeys[index]]
+                        ? 'rgba(255, 255, 255, 0.9)'
+                        : index === currentQuestionIndex
+                          ? 'rgba(255, 255, 255, 0.5)'
+                          : 'rgba(255, 255, 255, 0.2)'
+                    }}
+                    className="w-1.5 h-1.5 rounded-full transition-colors"
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Question card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-[#E8E6E3] overflow-hidden">
-              <div className="p-6 border-b border-[#E8E6E3]">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B7355]/10 text-[#8B7355] flex items-center justify-center font-serif font-semibold text-sm">
-                    {currentQuestionIndex + 1}
-                  </span>
-                  <span className="text-sm text-[#6B6B6B]">
-                    Question {currentQuestionIndex + 1} of 3
-                  </span>
-                </div>
-                <p className="text-xl font-medium text-[#2C2C2C] leading-relaxed font-serif">
+            <div className="backdrop-blur-md bg-white/10 rounded-3xl shadow-2xl border border-white/20 overflow-hidden relative">
+              {/* Decorative gradient blob behind */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -z-10 transform translate-x-1/2 -translate-y-1/2" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -z-10 transform -translate-x-1/2 translate-y-1/2" />
+
+              <div className="p-8 md:p-10 border-b border-white/10">
+                <motion.p
+                  key={currentQuestion.text}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-2xl md:text-3xl font-light text-white leading-relaxed font-serif tracking-wide"
+                >
                   {currentQuestion.text}
-                </p>
+                </motion.p>
               </div>
 
-              <div className="p-6">
+              <div className="p-8 md:p-10 bg-black/5">
                 {isCurrentCompleted ? (
-                  <div className="text-center py-8">
-                    <span className="text-3xl">✓</span>
-                    <p className="text-[#8B7355] mt-2 font-medium">Journaled</p>
+                  <div className="text-center py-12">
+                    <motion.div
+                      initial={{ scale: 0, rotate: -20 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className="inline-block p-4 rounded-full bg-green-500/20 mb-4"
+                    >
+                      <span className="text-3xl text-green-400">✓</span>
+                    </motion.div>
+                    <p className="text-white/80 font-medium text-lg tracking-wide">Journaled</p>
                   </div>
                 ) : (
                   <>
@@ -312,16 +387,22 @@ export default function SequentialQuestions({
                         setAnswers({ ...answers, [currentAnswerKey]: e.target.value })
                       }
                       placeholder="Write your thoughts..."
-                      className="min-h-[150px] text-base"
+                      className="min-h-[200px] text-lg bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30 focus:ring-white/20 rounded-xl resize-none p-4 transition-all duration-300"
                       autoFocus
                     />
-                    <div className="mt-4 flex justify-end">
+                    {error && (
+                      <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
+                        {error}
+                      </div>
+                    )}
+                    <div className="mt-6 flex justify-end">
                       <Button
                         onClick={handleSubmit}
                         isLoading={isSubmitting}
                         disabled={!answers[currentAnswerKey].trim()}
+                        className="bg-white text-black hover:bg-white/90 font-medium px-8 py-3 rounded-full transition-all duration-300 transform hover:scale-105"
                       >
-                        Submit
+                        Submit Entry
                       </Button>
                     </div>
                   </>
@@ -329,7 +410,7 @@ export default function SequentialQuestions({
               </div>
             </div>
 
-            <p className="text-center text-sm text-[#6B6B6B] mt-6">
+            <p className="text-center text-sm text-white/40 mt-8 font-light tracking-wide">
               Take your time. There&apos;s no right or wrong answer.
             </p>
           </motion.div>
