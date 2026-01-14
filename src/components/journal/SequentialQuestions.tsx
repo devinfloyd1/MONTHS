@@ -245,7 +245,7 @@ export default function SequentialQuestions({
 
     } catch (error) {
       console.error('Error submitting answer:', error);
-      setError('Failed to save your answer. Please try again.');
+      setError(`Failed to save: ${(error as any).message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
