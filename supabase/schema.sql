@@ -54,10 +54,13 @@ create table if not exists public.daily_entries (
   entry_date date not null,
   question_1_id uuid references public.questions(id) not null,
   question_1_answer text,
+  question_1_completed boolean default false,
   question_2_id uuid references public.questions(id) not null,
   question_2_answer text,
+  question_2_completed boolean default false,
   question_3_id uuid references public.questions(id) not null,
   question_3_answer text,
+  question_3_completed boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
 
