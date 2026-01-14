@@ -136,6 +136,26 @@ export default function SequentialQuestions({
         .single();
 
       if (insertError) {
+        // Check for unique constraint violation (Postgres code 23505)
+        if (insertError.code === '23505') {
+          console.log('Recovered from unique constraint violation, fetching existing entry...');
+          const { data: retryExisting, error: retryError } = await supabase
+            .from('daily_entries')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('entry_date', today)
+            .single();
+
+          if (retryExisting) {
+            setEntryId(retryExisting.id);
+            return retryExisting.id;
+          }
+          if (retryError) {
+            console.error('Error fetching existing entry after unique violation:', retryError);
+            throw retryError;
+          }
+        }
+
         console.error('Insert error details:', insertError);
         throw insertError;
       }
@@ -154,7 +174,7 @@ export default function SequentialQuestions({
   const createInitialEntry = async (selected: Question[]) => {
     try {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('daily_entries')
         .insert({
           user_id: userId,
@@ -171,6 +191,16 @@ export default function SequentialQuestions({
         })
         .select()
         .single();
+
+      if (error) {
+        // If it's a unique constraint violation, we can ignore it here as ensureEntryExists will handle it
+        if (error.code === '23505') {
+          console.log('Initial entry creation race condition handled');
+          return;
+        }
+        throw error;
+      }
+
       if (data) {
         setEntryId(data.id);
       }
