@@ -12,19 +12,29 @@ export async function GET(request: Request) {
 
     if (!error && data.user) {
       // Check if user profile exists, create if not
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('id')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching user:', fetchError);
+      }
 
       if (!existingUser) {
-        await supabase.from('users').insert({
+        const { error: insertError } = await supabase.from('users').insert({
           id: data.user.id,
           email: data.user.email!,
           name: data.user.user_metadata?.name || data.user.user_metadata?.full_name || null,
           subscription_tier: 'free',
         });
+
+        if (insertError) {
+          console.error('Error creating user:', insertError);
+          // If we fail to create the user, we should probably still let them through
+          // but maybe log it well.
+        }
       }
 
       return NextResponse.redirect(`${origin}${next}`);

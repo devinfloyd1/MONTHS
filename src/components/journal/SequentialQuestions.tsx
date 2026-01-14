@@ -122,6 +122,7 @@ export default function SequentialQuestions({
       }
 
       // Create new one
+      console.log('Attempting to create new entry for', today);
       const { data, error: insertError } = await supabase
         .from('daily_entries')
         .insert({
@@ -134,14 +135,18 @@ export default function SequentialQuestions({
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Insert error details:', insertError);
+        throw insertError;
+      }
       if (data) {
+        console.log('Entry created:', data.id);
         setEntryId(data.id);
         return data.id;
       }
     } catch (err) {
       console.error('Error ensuring entry exists:', err);
-      setError('Failed to start a new entry. Please try again.');
+      setError('Failed to start a new entry. Please refresh and try again.');
       return null;
     }
   };
@@ -170,7 +175,7 @@ export default function SequentialQuestions({
         setEntryId(data.id);
       }
     } catch (error) {
-      console.error('Error creating entry:', error);
+      console.error('Error creating initial entry:', error);
       // Don't set error here, we'll retry on submit
     }
   };
@@ -181,6 +186,7 @@ export default function SequentialQuestions({
     setIsSubmitting(true);
 
     try {
+      console.log('Submitting answer for question index:', currentQuestionIndex);
       // Ensure we have an entry ID
       const currentEntryId = await ensureEntryExists();
       if (!currentEntryId) {
@@ -201,12 +207,19 @@ export default function SequentialQuestions({
         [currentCompletedKey]: true,
       };
 
+      console.log('Updating entry:', currentEntryId, updateData);
+
       const { error: updateError } = await supabase
         .from('daily_entries')
         .update(updateData)
         .eq('id', currentEntryId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
+
+      console.log('Update successful');
 
       // Update local state
       setCompletedQuestions(prev => ({
