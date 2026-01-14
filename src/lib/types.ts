@@ -29,10 +29,13 @@ export interface DailyEntry {
   entry_date: string;
   question_1_id: string;
   question_1_answer: string | null;
+  question_1_completed: boolean;
   question_2_id: string;
   question_2_answer: string | null;
+  question_2_completed: boolean;
   question_3_id: string;
   question_3_answer: string | null;
+  question_3_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -91,20 +94,26 @@ export interface Database {
           entry_date: string;
           question_1_id: string;
           question_1_answer?: string | null;
+          question_1_completed?: boolean;
           question_2_id: string;
           question_2_answer?: string | null;
+          question_2_completed?: boolean;
           question_3_id: string;
           question_3_answer?: string | null;
+          question_3_completed?: boolean;
         };
         Update: {
           user_id?: string;
           entry_date?: string;
           question_1_id?: string;
           question_1_answer?: string | null;
+          question_1_completed?: boolean;
           question_2_id?: string;
           question_2_answer?: string | null;
+          question_2_completed?: boolean;
           question_3_id?: string;
           question_3_answer?: string | null;
+          question_3_completed?: boolean;
         };
         Relationships: [
           {

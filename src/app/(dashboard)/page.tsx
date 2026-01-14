@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import DailyQuestions from '@/components/journal/DailyQuestions';
 import { getTodayDate, getCurrentMonthYear } from '@/lib/utils';
+import TodayPage from '@/components/journal/TodayPage';
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -11,13 +11,6 @@ export default async function HomePage() {
   if (!user) {
     redirect('/login');
   }
-
-  // Get user profile
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
 
   const today = getTodayDate();
   const currentMonth = getCurrentMonthYear();
@@ -56,36 +49,18 @@ export default async function HomePage() {
     .select('*')
     .eq('is_active', true);
 
+  // Determine if we should show the landing animation
+  // Show it only if there's no entry for today yet
+  const showLanding = !existingEntry;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
-      <header className="mb-8">
-        <p className="text-[#6B6B6B] text-sm mb-1">
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </p>
-        <h1 className="text-2xl md:text-3xl font-serif font-semibold text-[#2C2C2C]">
-          {profile?.name ? `Good ${getGreeting()}, ${profile.name.split(' ')[0]}` : `Good ${getGreeting()}`}
-        </h1>
-      </header>
-
-      <DailyQuestions
-        userId={user.id}
-        existingEntry={existingEntry}
-        allQuestions={allQuestions || []}
-        usedQuestionIds={Array.from(usedQuestionIds)}
-        today={today}
-      />
-    </div>
+    <TodayPage
+      userId={user.id}
+      existingEntry={existingEntry}
+      allQuestions={allQuestions || []}
+      usedQuestionIds={Array.from(usedQuestionIds)}
+      today={today}
+      showLanding={showLanding}
+    />
   );
-}
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 17) return 'afternoon';
-  return 'evening';
 }

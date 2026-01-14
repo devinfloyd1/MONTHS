@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
-import { motion } from 'framer-motion';
 import { generateMonthlyPDF, downloadPDF } from '@/lib/pdf';
 import Button from '@/components/ui/Button';
 import type { Question } from '@/lib/types';
@@ -27,7 +25,6 @@ interface BookPreviewProps {
 
 export default function BookPreview({ userName, monthYear, monthName, entries }: BookPreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
 
   const handleDownload = async () => {
     setIsGenerating(true);
@@ -102,60 +99,18 @@ export default function BookPreview({ userName, monthYear, monthName, entries }:
         </div>
       </div>
 
-      {/* Entry List Preview */}
+      {/* Entry Summary */}
       <div className="bg-white rounded-2xl shadow-sm border border-[#E8E6E3] overflow-hidden">
-        <div className="p-6 border-b border-[#E8E6E3]">
+        <div className="p-6">
           <h3 className="font-serif font-semibold text-[#2C2C2C]">
             Book Contents
           </h3>
           <p className="text-sm text-[#6B6B6B] mt-1">
             {entries.length} days of reflections
           </p>
-        </div>
-
-        <div className="divide-y divide-[#E8E6E3] max-h-[400px] overflow-y-auto">
-          {entries.map((entry) => (
-            <button
-              key={entry.id}
-              onClick={() => setSelectedEntry(selectedEntry?.id === entry.id ? null : entry)}
-              className="w-full p-4 text-left hover:bg-[#8B7355]/5 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-[#2C2C2C]">
-                  {format(parseISO(entry.entry_date), 'EEEE, MMM d')}
-                </span>
-                <ChevronIcon
-                  className={`w-4 h-4 text-[#6B6B6B] transition-transform ${
-                    selectedEntry?.id === entry.id ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-
-              {selectedEntry?.id === entry.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-4 space-y-3"
-                >
-                  {[
-                    { q: entry.question_1?.text, a: entry.question_1_answer },
-                    { q: entry.question_2?.text, a: entry.question_2_answer },
-                    { q: entry.question_3?.text, a: entry.question_3_answer },
-                  ].map((item, idx) => (
-                    <div key={idx} className="text-sm">
-                      <p className="text-[#8B7355] font-medium">
-                        Q{idx + 1}: {item.q || 'Question not available'}
-                      </p>
-                      <p className="text-[#2C2C2C] mt-1 line-clamp-2">
-                        {item.a || <span className="text-[#6B6B6B] italic">No answer</span>}
-                      </p>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </button>
-          ))}
+          <p className="text-sm text-[#6B6B6B] mt-4">
+            Your journal entries are private. Download the PDF to revisit your reflections.
+          </p>
         </div>
       </div>
 
@@ -186,10 +141,3 @@ function DownloadIcon({ className }: { className?: string }) {
   );
 }
 
-function ChevronIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
